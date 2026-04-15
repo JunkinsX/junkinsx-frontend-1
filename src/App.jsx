@@ -1,42 +1,70 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
-import Dashboard from './pages/Dashboard';
-import CreatePipeline from './pages/CreatePipeline';
+
+// Pages
+import AuthPage        from './pages/AuthPage';
+import Dashboard       from './pages/Dashboard';
+import CreatePipeline  from './pages/CreatePipeline';
 import PipelineDetails from './pages/PipelineDetails';
+import LogsPage        from './pages/LogsPage';
+import BundlePage      from './pages/BundlePage';
+import TaskBuilderPage from './pages/TaskBuilderPage';
 
 function App() {
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem('theme');
+    if (stored) return stored === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark]);
+
   return (
-    <Router>
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors duration-300">
-        <Navbar />
+    <AuthProvider>
+      <Router>
+        <Navbar dark={dark} onToggleDark={() => setDark(d => !d)} />
+
         <main>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/create" element={<CreatePipeline />} />
-            <Route path="/pipeline/:id" element={<PipelineDetails />} />
+            {/* Public */}
+            <Route path="/auth" element={<AuthPage />} />
+
+            {/* Protected */}
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/create" element={<ProtectedRoute><CreatePipeline /></ProtectedRoute>} />
+            <Route path="/pipeline/:id" element={<ProtectedRoute><PipelineDetails /></ProtectedRoute>} />
+            <Route path="/logs/:pipelineId" element={<ProtectedRoute><LogsPage /></ProtectedRoute>} />
+            <Route path="/bundles" element={<ProtectedRoute><BundlePage /></ProtectedRoute>} />
+            <Route path="/tasks" element={<ProtectedRoute><TaskBuilderPage /></ProtectedRoute>} />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
-        
-        {/* Simple Footer */}
-        <footer className="py-12 px-4 border-t border-zinc-200 dark:border-zinc-800 mt-20">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-blue-600 rounded-md" />
-              <span className="font-bold text-zinc-400">JunkinsX CI/CD</span>
-            </div>
-            <p className="text-sm text-zinc-500">
-              Built with React, Tailwind CSS, and passion for automation.
+
+        <footer className="footer">
+          <div className="footer__inner">
+            <span style={{ fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+              JunkinsX
+            </span>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: 0 }}>
+              CI/CD Pipeline Management · Built with React &amp; passion for automation.
             </p>
-            <div className="flex items-center gap-6 text-sm text-zinc-500">
-              <a href="#" className="hover:text-blue-500 transition-colors">Documentation</a>
-              <a href="#" className="hover:text-blue-500 transition-colors">Support</a>
-              <a href="#" className="hover:text-blue-500 transition-colors">API</a>
+            <div className="footer__links">
+              <a href="#" className="footer__link">Docs</a>
+              <a href="#" className="footer__link">Support</a>
+              <a href="#" className="footer__link">API</a>
             </div>
           </div>
         </footer>
-      </div>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 

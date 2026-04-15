@@ -1,69 +1,93 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Rocket, LayoutDashboard, PlusCircle, Code } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutGrid, GitBranch, Package, LogOut, User, Boxes, ListTodo } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-const Navbar = () => {
+const Navbar = ({ dark, onToggleDark }) => {
   const location = useLocation();
+  const navigate  = useNavigate();
+  const { auth, logout } = useAuth();
+
+  const isAuth = location.pathname === '/auth';
 
   const navItems = [
-    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/create', label: 'Create', icon: PlusCircle },
+    { path: '/',        label: 'Dashboard', icon: LayoutGrid },
+    { path: '/bundles', label: 'Bundles',   icon: Boxes },
+    { path: '/tasks',   label: 'Tasks',     icon: ListTodo },
   ];
 
-  return (
-    <nav className="sticky top-0 z-50 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="bg-blue-600 p-1.5 rounded-lg group-hover:rotate-12 transition-transform shadow-lg shadow-blue-500/20">
-              <Rocket className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-zinc-900 to-zinc-500 dark:from-white dark:to-zinc-500">
-              JunkinsX
-            </span>
-          </Link>
+  const handleLogout = () => {
+    logout();
+    navigate('/auth', { replace: true });
+  };
 
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900 p-1 rounded-xl">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
-                      isActive 
-                        ? 'text-blue-600 dark:text-blue-400' 
-                        : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
-                    }`}
-                  >
-                    {isActive && (
-                      <motion.div
-                        layoutId="nav-bg"
-                        className="absolute inset-0 bg-white dark:bg-zinc-800 shadow-sm rounded-lg"
-                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                      />
-                    )}
-                    <span className="relative flex items-center gap-2">
-                      <Icon className="w-4 h-4" />
-                      {item.label}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-            
-            <a 
-              href="https://github.com" 
-              target="_blank" 
-              rel="noreferrer"
-              className="p-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
-            >
-              <Code className="w-5 h-5" />
-            </a>
+  return (
+    <nav className="navbar">
+      <div className="navbar__inner">
+        {/* Logo */}
+        <Link to="/" className="navbar__logo">
+          <GitBranch size={18} strokeWidth={2.5} />
+          JunkinsX
+        </Link>
+
+        {/* Center nav — hidden on auth page */}
+        {!isAuth && auth && (
+          <div className="navbar__nav">
+            {navItems.map(({ path, label, icon: Icon }) => {
+              const isActive = location.pathname === path;
+              return (
+                <Link
+                  key={path}
+                  to={path}
+                  className={`nav-link${isActive ? ' active' : ''}`}
+                >
+                  <Icon size={14} strokeWidth={2} />
+                  {label}
+                </Link>
+              );
+            })}
           </div>
+        )}
+
+        {/* Actions */}
+        <div className="navbar__actions">
+          {/* Theme toggle */}
+          <button
+            className="theme-toggle"
+            onClick={onToggleDark}
+            aria-label="Toggle dark mode"
+            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            <span className="theme-toggle__thumb" />
+          </button>
+
+          {/* User avatar + logout */}
+          {!isAuth && auth && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div
+                title={auth.username}
+                style={{
+                  width: 30, height: 30,
+                  borderRadius: '50%',
+                  background: 'var(--bg-muted)',
+                  border: '1px solid var(--border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.75rem', fontWeight: 700,
+                  color: 'var(--text-secondary)',
+                  cursor: 'default',
+                }}
+              >
+                {auth.username?.[0]?.toUpperCase() ?? <User size={13} />}
+              </div>
+              <button
+                className="btn btn-icon btn-ghost"
+                onClick={handleLogout}
+                title="Log out"
+              >
+                <LogOut size={15} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </nav>

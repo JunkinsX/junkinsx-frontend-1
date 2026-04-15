@@ -1,57 +1,90 @@
-import React, { useEffect, useRef } from 'react';
-import { Terminal as TerminalIcon, Copy, Check } from 'lucide-react';
-import { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Terminal as TerminalIcon, Copy, Check, Circle } from 'lucide-react';
 
-const Terminal = ({ logs, title = "Build Output" }) => {
+const Terminal = ({ logs = [], title = 'Build Output', status }) => {
   const scrollRef = useRef(null);
   const [copied, setCopied] = useState(false);
 
+  // Auto-scroll to bottom whenever logs change
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [logs]);
 
+  const allText = Array.isArray(logs)
+    ? logs.map((l) => l.output ?? l).join('\n')
+    : String(logs ?? '');
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(logs);
+    navigator.clipboard.writeText(allText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const statusColor = status === 'SUCCESS' ? '#28c840' : status === 'FAILED' ? '#ff5f57' : '#febc2e';
+
   return (
-    <div className="bg-black rounded-xl overflow-hidden border border-zinc-800 shadow-2xl flex flex-col h-full max-h-[600px]">
-      <div className="bg-zinc-900 px-4 py-2 border-b border-zinc-800 flex justify-between items-center shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5 mr-2">
-            <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-            <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-            <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+    <div className="terminal" style={{ maxHeight: '100%', height: '100%' }}>
+      {/* Mac-style bar */}
+      <div className="terminal__bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+          <div className="terminal__dots">
+            <span className="terminal__dot terminal__dot--red" />
+            <span className="terminal__dot terminal__dot--yellow" />
+            <span className="terminal__dot terminal__dot--green" />
           </div>
-          <TerminalIcon className="w-4 h-4 text-zinc-400" />
-          <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest">{title}</span>
+          <div className="terminal__title">
+            <TerminalIcon size={12} />
+            {title}
+          </div>
         </div>
-        <button 
-          onClick={handleCopy}
-          className="text-zinc-500 hover:text-emerald-400 transition-colors"
-          title="Copy Logs"
-        >
-          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {status && (
+            <Circle
+              size={8}
+              fill={statusColor}
+              stroke="none"
+              title={status}
+            />
+          )}
+          <button
+            onClick={handleCopy}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#52525b', transition: 'color 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#a3e635'}
+            onMouseLeave={e => e.currentTarget.style.color = '#52525b'}
+            title="Copy logs"
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        </div>
       </div>
-      
-      <div 
-        ref={scrollRef}
-        className="p-6 font-mono text-sm overflow-y-auto grow scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent selection:bg-emerald-500/30"
-      >
-        {logs ? (
-          <pre className="text-emerald-400 whitespace-pre-wrap leading-relaxed">
-            {logs}
-            <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse align-middle" />
-          </pre>
+
+      {/* Body */}
+      <div className="terminal__body" ref={scrollRef}>
+        {Array.isArray(logs) && logs.length > 0 ? (
+          logs.map((entry, i) => {
+            const text = entry?.output ?? String(entry);
+            const isError = /error|fail|fatal/i.test(text);
+            const isWarn  = /warn|warning/i.test(text);
+            return (
+              <span
+                key={i}
+                className={`log-output-line${isError ? ' error-line' : isWarn ? ' warn-line' : ''}`}
+                style={{ color: isError ? '#f87171' : isWarn ? '#fbbf24' : undefined }}
+              >
+                {text}
+                {'\n'}
+              </span>
+            );
+          })
+        ) : typeof logs === 'string' && logs ? (
+          <pre style={{ color: '#a3e635', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{logs}</pre>
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-zinc-600 animate-pulse italic">Waiting for logs...</p>
-          </div>
+          <span style={{ color: '#52525b', fontStyle: 'italic' }}>
+            Waiting for output...{' '}
+            <span className="terminal__cursor" />
+          </span>
         )}
       </div>
     </div>
