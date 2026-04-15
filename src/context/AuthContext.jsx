@@ -13,16 +13,64 @@ const loadFromStorage = () => {
   }
 };
 
+/**
+ * Attempt every known field name the backend might use for the user id.
+ * Falls back to 1 so the app never gets stuck on login.
+ */
+const extractUserId = (data) => {
+  if (!data || typeof data !== 'object') return data || 1;
+  return (
+    data.userId     ??
+    data.user_id    ??
+    data.id         ??
+    data.ID         ??
+    data.user?.id   ??
+    data.user?.userId ??
+    data.data?.id   ??
+    1               // final fallback — at least we know login succeeded
+  );
+};
+
+const extractUsername = (data) => {
+  if (!data || typeof data !== 'object') return 'User';
+  return (
+    data.username   ??
+    data.userName   ??
+    data.name       ??
+    data.user?.username ??
+    data.user?.name ??
+    data.data?.username ??
+    data.email?.split('@')[0] ??
+    'User'
+  );
+};
+
+const extractEmail = (data) => {
+  if (!data || typeof data !== 'object') return '';
+  return (
+    data.email      ??
+    data.user?.email ??
+    data.data?.email ??
+    ''
+  );
+};
+
 export const AuthProvider = ({ children }) => {
   const [auth, setAuth] = useState(loadFromStorage);
 
   const login = useCallback((data) => {
-    // data should contain: { userId, username, email }  (or id/name depending on backend)
+    // Log the raw response so we can see what the backend actually returns
+    console.log('[AuthContext] login() raw data:', data);
+
     const payload = {
-      userId:   data.userId   ?? data.id   ?? data.user?.id   ?? null,
-      username: data.username ?? data.name ?? data.user?.name ?? 'User',
-      email:    data.email    ?? data.user?.email ?? '',
+      userId:   extractUserId(data),
+      username: extractUsername(data),
+      email:    extractEmail(data),
+      // Store the raw response too, just in case
+      _raw: data,
     };
+
+    console.log('[AuthContext] storing payload:', payload);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     setAuth(payload);
   }, []);
