@@ -199,6 +199,43 @@ code, pre, .font-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
   text-transform: uppercase;
   border: 1px solid transparent;
 }
+
+/* ─── Banners ─────────────────────────────────────────── */
+.error-banner, .success-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.875rem 1.125rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  animation: banner-slide-down 0.3s ease-out;
+}
+
+.error-banner {
+  background: var(--bg-error);
+  color: var(--text-error);
+  border: 1px solid var(--border-error);
+}
+
+.success-banner {
+  background: var(--bg-success);
+  color: var(--text-success);
+  border: 1px solid var(--border-success);
+}
+
+@keyframes banner-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-badge {
+  0%   { opacity: 1; transform: scale(1); }
+  50%  { opacity: 0.5; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 .badge-queued  { background: var(--status-queued-bg);  color: var(--status-queued-text);  border-color: var(--status-queued-border); }
 .badge-running { background: var(--status-running-bg); color: var(--status-running-text); border-color: var(--status-running-border); animation: pulse-badge 1.5s ease-in-out infinite; }
 .badge-success { background: var(--status-success-bg); color: var(--status-success-text); border-color: var(--status-success-border); }

@@ -3,15 +3,15 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ChevronLeft, Play, Package, ListTodo, KeyRound, Shield,
   Plus, AlertCircle, Loader2, GitBranch, Link2, Server, Eye, EyeOff,
-  Check, Copy,
+  Check, Copy, Rocket, X, Trash2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import {
   getPipelinesByUser,
   addBundleToPipeline, addTasksToPipeline, addSecretsToPipeline,
-  setSSHKeys, executePipeline,
-  getBundles, createTask,
+  executePipeline, getPipelinePublicKey,
+  getBundlesByUserId, createTask,
 } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
@@ -47,7 +47,7 @@ const AddBundleModal = ({ open, onClose, userId, pipelineId, onAdded }) => {
   useEffect(() => {
     if (!open) return;
     setFetching(true);
-    getBundles(userId)
+    getBundlesByUserId(userId)
       .then(r => setBundles(Array.isArray(r.data) ? r.data : []))
       .catch(() => {})
       .finally(() => setFetching(false));
@@ -270,64 +270,112 @@ const AddSecretModal = ({ open, onClose, pipelineId, onAdded }) => {
 
 /* ── SSH Keys Tab ────────────────────────────────────── */
 const SSHKeysTab = ({ pipelineId }) => {
-  const [form, setForm] = useState({ publicKey: '', privateKey: '' });
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError]     = useState('');
-  const [showPriv, setShowPriv] = useState(false);
+  const [publicKey, setPublicKey] = useState('');
+  const [fetching, setFetching] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  useEffect(() => {
+    setFetching(true);
+    getPipelinePublicKey(pipelineId)
+      .then(res => {
+        if (res.data) setPublicKey(res.data);
+      })
+      .catch(() => {})
+      .finally(() => setFetching(false));
+  }, [pipelineId]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess(false);
-    setLoading(true);
-    try {
-      await setSSHKeys({ pipelineId: Number(pipelineId), ...form });
-      setSuccess(true);
-    } catch (err) {
-      setError(err.response?.data?.message ?? 'Failed to save SSH keys.');
-    } finally {
-      setLoading(false);
-    }
+  const copyKey = () => {
+    navigator.clipboard.writeText(publicKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
+  const setupCommand = `echo "${publicKey}" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`;
+
+  const copyCommand = () => {
+    navigator.clipboard.writeText(setupCommand);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (fetching) return (
+    <div style={{ padding: '3rem', textAlign: 'center' }}>
+      <Loader2 size={24} className="spin" style={{ margin: '0 auto' }} />
+      <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>Fetching security configuration...</p>
+    </div>
+  );
+
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: 600 }}>
-      <div className="form-group">
-        <label className="form-label"><KeyRound size={13} />Public Key</label>
-        <textarea
-          rows={4}
-          className="input"
-          placeholder="ssh-rsa AAAA..."
-          value={form.publicKey}
-          onChange={set('publicKey')}
-          style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', resize: 'vertical' }}
-        />
+    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2.5rem', alignItems: 'flex-start' }}>
+      <div>
+        <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '0.5rem' }}>Server Access Setup</h3>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: 1.6 }}>
+          JunkinsX has generated a unique, secure SSH key pair specifically for this pipeline.
+          Copy the command below and paste it into your server's terminal to grant access.
+        </p>
+
+        <div className="card" style={{ padding: '2rem', border: '1px solid var(--accent)', background: 'rgba(var(--accent-rgb), 0.03)', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Authorization Command
+            </span>
+            <button className="btn btn-primary" style={{ padding: '0.5rem 1.25rem' }} onClick={copyCommand}>
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? 'Copied to Clipboard' : 'Copy Command'}
+            </button>
+          </div>
+          
+          <div style={{
+            padding: '1.25rem',
+            background: 'var(--text-primary)',
+            color: 'var(--bg-primary)',
+            borderRadius: '12px',
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: '0.8125rem',
+            lineHeight: 1.6,
+            wordBreak: 'break-all',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>$</span> {setupCommand || 'Generating...'}
+          </div>
+
+          <div style={{ marginTop: '1.25rem', padding: '0.75rem', borderRadius: '8px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <AlertCircle size={14} />
+            This command appends the key and sets the correct secure permissions.
+          </div>
+        </div>
       </div>
-      <div className="form-group">
-        <label className="form-label" style={{ justifyContent: 'space-between' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}><KeyRound size={13} />Private Key</span>
-          <button type="button" onClick={() => setShowPriv(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-            {showPriv ? <EyeOff size={13} /> : <Eye size={13} />}
-          </button>
-        </label>
-        <textarea
-          rows={6}
-          className="input"
-          placeholder="-----BEGIN RSA PRIVATE KEY-----"
-          value={form.privateKey}
-          onChange={set('privateKey')}
-          style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', resize: 'vertical', filter: showPriv ? 'none' : 'blur(4px)', transition: 'filter 0.2s' }}
-        />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div className="card" style={{ padding: '1.5rem', background: 'var(--bg-muted)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>
+            <Shield size={18} />
+            <h4 style={{ fontWeight: 600, margin: 0 }}>Security Information</h4>
+          </div>
+          <ul style={{ padding: 0, margin: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <li style={{ display: 'flex', gap: '0.75rem', fontSize: '0.8125rem', lineHeight: 1.5 }}>
+              <Check size={14} style={{ flexShrink: 0, marginTop: 2, color: 'var(--accent)' }} />
+              <span>A unique RSA 2048-bit key pair is generated for every pipeline.</span>
+            </li>
+            <li style={{ display: 'flex', gap: '0.75rem', fontSize: '0.8125rem', lineHeight: 1.5 }}>
+              <Check size={14} style={{ flexShrink: 0, marginTop: 2, color: 'var(--accent)' }} />
+              <span>The private key is encrypted at rest and never exposed via the API.</span>
+            </li>
+            <li style={{ display: 'flex', gap: '0.75rem', fontSize: '0.8125rem', lineHeight: 1.5 }}>
+              <Check size={14} style={{ flexShrink: 0, marginTop: 2, color: 'var(--accent)' }} />
+              <span>You can revoke access at any time by removing the key from your server's <code>authorized_keys</code>.</span>
+            </li>
+          </ul>
+        </div>
+
+        <div style={{ padding: '0 1rem', fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+          <p>
+            <AlertCircle size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+            <b>Note:</b> Ensure you are logged in as the same user configured in your server <b>Bundles</b> (e.g. <code>ubuntu</code> or <code>root</code>).
+          </p>
+        </div>
       </div>
-      {error   && <div className="error-banner"><AlertCircle size={14} />{error}</div>}
-      {success && <div className="success-banner"><Check size={14} />SSH keys saved successfully.</div>}
-      <button type="submit" className="btn btn-primary" disabled={loading} style={{ alignSelf: 'flex-start', paddingLeft: '1.5rem', paddingRight: '1.5rem' }}>
-        {loading ? <Loader2 size={15} className="spin" /> : 'Save Keys'}
-      </button>
-    </form>
+    </div>
   );
 };
 
@@ -350,7 +398,7 @@ const PipelineDetails = () => {
   const [pipeline, setPipeline] = useState(location.state?.pipeline ?? null);
   const [activeTab, setActiveTab] = useState('overview');
   const [executing, setExecuting] = useState(false);
-  const [execError, setExecError] = useState('');
+  const [execResult, setExecResult] = useState(null); // { type: 'success' | 'error', text: string }
 
   // Modals
   const [bundleModal, setBundleModal] = useState(false);
@@ -384,13 +432,15 @@ const PipelineDetails = () => {
   }, [auth.userId, id, pipeline]);
 
   const handleExecute = async () => {
-    setExecError('');
     setExecuting(true);
+    setExecResult(null);
     try {
       await executePipeline(id);
+      // Immediately navigate to logs since it's now async
       navigate(`/logs/${id}`);
     } catch (err) {
-      setExecError(err.response?.data?.message ?? 'Execution failed.');
+      const msg = err.response?.data?.message ?? err.response?.data ?? 'Execution failed.';
+      setExecResult({ type: 'error', text: msg });
       setExecuting(false);
     }
   };
@@ -430,11 +480,21 @@ const PipelineDetails = () => {
         </button>
       </div>
 
-      {execError && (
-        <div className="error-banner" style={{ marginBottom: '1.5rem' }}>
-          <AlertCircle size={16} style={{ flexShrink: 0 }} />
-          {execError}
-        </div>
+      {execResult && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={execResult.type === 'success' ? 'success-banner' : 'error-banner'}
+          style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+        >
+          {execResult.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+          <div style={{ flex: 1 }}>{execResult.text}</div>
+          {execResult.type === 'success' && (
+            <button className="btn btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => navigate(`/logs/${id}`)}>
+              View Logs
+            </button>
+          )}
+        </motion.div>
       )}
 
       {/* Tabs */}
@@ -492,6 +552,40 @@ const PipelineDetails = () => {
               <div className="info-row">
                 <span className="info-row__label"><GitBranch size={14} />Pipeline ID</span>
                 <span className="info-row__value" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}>#{id}</span>
+              </div>
+            </div>
+
+            {/* GitHub Webhook Info */}
+            <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <span className="section-label" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                  <Rocket size={12} /> GitHub Webhook
+                </span>
+                <button
+                  className="btn btn-ghost btn-icon"
+                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', height: 'auto' }}
+                  onClick={() => {
+                    navigator.clipboard.writeText('http://18.117.224.52:8080/api/webhook/github');
+                    // Simple feedback could be added here
+                  }}
+                >
+                  <Copy size={12} /> Copy URL
+                </button>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                Paste this into your GitHub Repo <b>Settings &gt; Webhooks</b> to trigger this pipeline on every <code>push</code>.
+              </p>
+              <div style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: '0.75rem',
+                padding: '0.625rem',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                color: 'var(--text-primary)',
+                wordBreak: 'break-all'
+              }}>
+                http://18.117.224.52:8080/api/webhook/github
               </div>
             </div>
           </div>

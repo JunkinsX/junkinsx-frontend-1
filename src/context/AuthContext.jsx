@@ -5,11 +5,28 @@ const AuthContext = createContext(null);
 
 const STORAGE_KEY = 'jx_auth';
 
+/**
+ * Returns true only if the stored payload has a valid numeric userId.
+ * Rejects old/corrupt sessions where userId ended up as a string like
+ * "Login successful" (from the pre-fix version of AuthContext).
+ */
+const isValidPayload = (p) =>
+  p && typeof p === 'object' && typeof p.userId === 'number' && p.userId > 0;
+
 const loadFromStorage = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!isValidPayload(parsed)) {
+      // Stale / corrupt session — wipe it so the user is redirected to login
+      console.warn('[AuthContext] Clearing invalid cached session:', parsed);
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
+    localStorage.removeItem(STORAGE_KEY);
     return null;
   }
 };
@@ -27,34 +44,19 @@ export const AuthProvider = ({ children }) => {
    * @param {string} email        - email used during login (passed by AuthPage)
    */
   const login = useCallback(async (data, email) => {
-    console.log('[AuthContext] login() raw data:', data, 'email:', email);
+    console.log('[AuthContext] login() data:', data);
 
-    let userId   = 1;
-    let username = email ? email.split('@')[0] : 'User';
-    let resolvedEmail = email ?? '';
+    // The backend now returns the full User object
+    const userId = data?.id ?? data?.userId ?? 1;
+    const username = data?.username ?? (email ? email.split('@')[0] : 'User');
+    const resolvedEmail = data?.email ?? email ?? '';
 
-    // The backend returns a plain string \u2014 fetch real user info via getAllUsers
-    if (email) {
-      try {
-        const res   = await getAllUsers();
-        const users = Array.isArray(res.data) ? res.data : [];
-        const found = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-        if (found) {
-          userId        = found.id ?? found.userId ?? 1;
-          username      = found.username ?? found.name ?? username;
-          resolvedEmail = found.email ?? email;
-        }
-      } catch (e) {
-        console.warn('[AuthContext] Could not resolve userId from getAllUsers:', e.message);
-      }
-    } else if (data && typeof data === 'object') {
-      // If the backend ever returns a proper user object, use it directly
-      userId        = data.userId ?? data.id ?? data.user?.id ?? 1;
-      username      = data.username ?? data.user?.username ?? username;
-      resolvedEmail = data.email ?? data.user?.email ?? resolvedEmail;
-    }
+    const payload = {
+      userId: Number(userId),
+      username,
+      email: resolvedEmail,
+    };
 
-    const payload = { userId, username, email: resolvedEmail, _raw: data };
     console.log('[AuthContext] storing payload:', payload);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     setAuth(payload);

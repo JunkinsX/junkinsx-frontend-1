@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { getBundles, addBundleToUser } from '../api/api';
+import { getBundlesByUserId, addBundleToUser } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Server, Boxes, X, AlertCircle, Check, Loader2, User } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -129,7 +129,7 @@ const BundlePage = () => {
   const fetchBundles = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getBundles(auth.userId);
+      const res = await getBundlesByUserId(auth.userId);
       setBundles(Array.isArray(res.data) ? res.data : []);
       setError('');
     } catch (err) {

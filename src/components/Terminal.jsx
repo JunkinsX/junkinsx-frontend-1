@@ -1,14 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Terminal as TerminalIcon, Copy, Check, Circle } from 'lucide-react';
+import Ansi from 'ansi-to-react';
 
-const Terminal = ({ logs = [], title = 'Build Output', status }) => {
+const Terminal = ({ logs = [], title = 'Build Output', status, isStarting }) => {
   const scrollRef = useRef(null);
   const [copied, setCopied] = useState(false);
 
   // Auto-scroll to bottom whenever logs change
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 0);
     }
   }, [logs]);
 
@@ -64,22 +69,28 @@ const Terminal = ({ logs = [], title = 'Build Output', status }) => {
       <div className="terminal__body" ref={scrollRef}>
         {Array.isArray(logs) && logs.length > 0 ? (
           logs.map((entry, i) => {
+            const task = entry?.taskName ? `[${entry.taskName}] ` : '';
             const text = entry?.output ?? String(entry);
             const isError = /error|fail|fatal/i.test(text);
             const isWarn  = /warn|warning/i.test(text);
             return (
               <span
                 key={i}
-                className={`log-output-line${isError ? ' error-line' : isWarn ? ' warn-line' : ''}`}
-                style={{ color: isError ? '#f87171' : isWarn ? '#fbbf24' : undefined }}
+                className="log-output-line"
               >
-                {text}
+                {task}
+                <Ansi useClasses={false}>{text}</Ansi>
                 {'\n'}
               </span>
             );
           })
         ) : typeof logs === 'string' && logs ? (
           <pre style={{ color: '#a3e635', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{logs}</pre>
+        ) : isStarting ? (
+          <span style={{ color: '#a3e635', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+             <span className="terminal__cursor" />
+             Preparing execution environment...
+          </span>
         ) : (
           <span style={{ color: '#52525b', fontStyle: 'italic' }}>
             Waiting for output...{' '}

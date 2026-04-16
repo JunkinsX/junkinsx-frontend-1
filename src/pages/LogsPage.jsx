@@ -1,13 +1,15 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getLogs } from '../api/api';
+import { getLogs, clearLogs } from '../api/api';
 import Terminal from '../components/Terminal';
 import StatusBadge from '../components/StatusBadge';
-import { ChevronLeft, RefreshCw, StopCircle, Play, AlertCircle } from 'lucide-react';
+import { ChevronLeft, RefreshCw, StopCircle, Play, AlertCircle, Trash2, Wifi, WifiOff } from 'lucide-react';
 import { motion } from 'framer-motion';
+import SockJS from 'sockjs-client';
+import { Client } from '@stomp/stompjs';
 
 const TERMINAL_DONE = ['SUCCESS', 'FAILED'];
-const POLL_INTERVAL = 3000;
+const BASE_URL = 'http://18.117.224.52:8080';
 
 const LogsPage = () => {
   const { pipelineId } = useParams();
@@ -16,45 +18,76 @@ const LogsPage = () => {
   const [logs, setLogs]       = useState([]);
   const [status, setStatus]   = useState(null);
   const [error, setError]     = useState('');
-  const [polling, setPolling] = useState(true);
   const [lastFetch, setLastFetch] = useState(null);
-  const intervalRef = useRef(null);
+  const [clearing, setClearing]   = useState(false);
+  const [wsLive, setWsLive] = useState(false);
 
   const fetchLogs = useCallback(async () => {
     try {
       const res = await getLogs(pipelineId);
       const data = Array.isArray(res.data) ? res.data : [res.data].filter(Boolean);
+      data.sort((a,b) => a.id - b.id);
       setLogs(data);
 
-      // Determine overall status from latest entry
-      const latestStatus = data[data.length - 1]?.status ?? null;
+      const latestStatus = data[data.length - 1]?.status ?? 'RUNNING'; 
       setStatus(latestStatus);
       setLastFetch(new Date());
       setError('');
-
-      // Stop polling when done
-      if (TERMINAL_DONE.includes(latestStatus)) {
-        setPolling(false);
-      }
     } catch (err) {
       setError(err.response?.data?.message ?? 'Failed to fetch logs.');
     }
   }, [pipelineId]);
 
+  const handleClear = async () => {
+    if (!window.confirm('Are you sure you want to clear all logs for this pipeline?')) return;
+    setClearing(true);
+    try {
+      await clearLogs(pipelineId);
+      await fetchLogs();
+    } catch (err) {
+      setError('Failed to clear logs.');
+    } finally {
+      setClearing(false);
+    }
+  };
+
   // Initial fetch
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
-  // Polling
+  // STOMP WebSocket implementation
   useEffect(() => {
-    if (!polling) {
-      clearInterval(intervalRef.current);
-      return;
-    }
-    intervalRef.current = setInterval(fetchLogs, POLL_INTERVAL);
-    return () => clearInterval(intervalRef.current);
-  }, [polling, fetchLogs]);
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${BASE_URL}/ws`),
+      reconnectDelay: 2000,
+      onConnect: () => {
+        setWsLive(true);
+        client.subscribe(`/topic/logs/${pipelineId}`, (message) => {
+          if (message.body) {
+            const newLog = JSON.parse(message.body);
+            setLogs((prev) => {
+              const without = prev.filter(l => l.id !== newLog.id);
+              return [...without, newLog].sort((a, b) => a.id - b.id);
+            });
+            setStatus(newLog.status);
+            setLastFetch(new Date());
+          }
+        });
+      },
+      onDisconnect: () => {
+        setWsLive(false);
+      },
+      onStompError: (frame) => {
+        console.error('Broker reported error: ' + frame.headers['message']);
+        console.error('Additional details: ' + frame.body);
+      }
+    });
 
-  const togglePolling = () => setPolling(p => !p);
+    client.activate();
+
+    return () => {
+      client.deactivate();
+    };
+  }, [pipelineId]);
 
   return (
     <div className="page-container">
@@ -68,12 +101,17 @@ const LogsPage = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
               <h1 style={{ fontSize: '1.25rem', margin: 0 }}>Pipeline #{pipelineId} — Logs</h1>
               {status && <StatusBadge status={status} />}
+              {wsLive ? (
+                <Wifi size={14} style={{ color: 'var(--status-running-text)' }} title="WebSocket Live" />
+              ) : (
+                <WifiOff size={14} style={{ color: 'var(--text-muted)' }} title="WebSocket Disconnected" />
+              )}
             </div>
             <p style={{ margin: 0, fontSize: '0.8125rem', marginTop: '0.125rem' }}>
-              {polling ? (
+              {wsLive && !TERMINAL_DONE.includes(status) ? (
                 <span style={{ color: 'var(--status-running-text)', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--status-running-text)', display: 'inline-block', animation: 'pulse-badge 1.5s ease-in-out infinite' }} />
-                  Auto-refreshing every {POLL_INTERVAL / 1000}s
+                  Listening on Live Socket
                 </span>
               ) : (
                 <span style={{ color: 'var(--text-muted)' }}>
@@ -85,17 +123,13 @@ const LogsPage = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-ghost" onClick={fetchLogs} title="Refresh now">
-            <RefreshCw size={14} />
-            Refresh
+          <button className="btn btn-ghost" onClick={handleClear} disabled={clearing} style={{ color: 'var(--status-failed-text)' }}>
+            <Trash2 size={14} />
+            {clearing ? 'Clearing...' : 'Clear Logs'}
           </button>
-          <button
-            className="btn btn-ghost"
-            onClick={togglePolling}
-            title={polling ? 'Pause auto-refresh' : 'Resume auto-refresh'}
-          >
-            {polling ? <StopCircle size={14} /> : <Play size={14} />}
-            {polling ? 'Pause' : 'Resume'}
+          <button className="btn btn-ghost" onClick={fetchLogs} title="Refresh Initial Output">
+            <RefreshCw size={14} />
+            Sync
           </button>
         </div>
       </div>
@@ -117,6 +151,7 @@ const LogsPage = () => {
           logs={logs}
           title={`pipeline-${pipelineId}.log`}
           status={status}
+          isStarting={logs.length === 0 && status === 'RUNNING'}
         />
       </motion.div>
 
