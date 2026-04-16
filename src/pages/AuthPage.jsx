@@ -31,11 +31,11 @@ const AuthPage = () => {
         setSuccess('Account created! Signing you in…');
         // Auto-login after register
         const res = await loginUser({ email: form.email, password: form.password });
-        login(res.data);
+        await login(res.data, form.email);
         navigate(from, { replace: true });
       } else {
         const res = await loginUser({ email: form.email, password: form.password });
-        login(res.data);
+        await login(res.data, form.email);
         navigate(from, { replace: true });
       }
     } catch (err) {

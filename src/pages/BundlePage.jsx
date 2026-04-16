@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { getBundles, createBundle } from '../api/api';
+import { getBundles, addBundleToUser } from '../api/api';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Server, Boxes, X, AlertCircle, Check, Loader2 } from 'lucide-react';
+import { Plus, Server, Boxes, X, AlertCircle, Check, Loader2, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 /* ── Create Bundle Modal ─────────────────────────────── */
 const CreateBundleModal = ({ open, onClose, userId, onCreated }) => {
-  const [form, setForm]   = useState({ bundleName: '', bundleDescription: '', ipInput: '' });
+  const [form, setForm]   = useState({ bundleName: '', bundleDescription: '', sshUsername: '', ipInput: '' });
   const [ips, setIps]     = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,20 +30,22 @@ const CreateBundleModal = ({ open, onClose, userId, onCreated }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!ips.length) { setError('Add at least one IP address.'); return; }
+    if (!form.sshUsername.trim()) { setError('SSH username is required.'); return; }
     setError('');
     setLoading(true);
     try {
-      await createBundle({
+      await addBundleToUser({
         userId,
-        bundleList: [{
-          bundleName: form.bundleName,
+        bundle: {
+          bundleName:        form.bundleName,
           bundleDescription: form.bundleDescription,
-          ipAddresses: ips,
-        }],
+          ipAddresses:       ips,
+          username:          form.sshUsername.trim(), // SSH login user (e.g. ec2-user, ubuntu)
+        },
       });
       onCreated();
       onClose();
-      setForm({ bundleName: '', bundleDescription: '', ipInput: '' });
+      setForm({ bundleName: '', bundleDescription: '', sshUsername: '', ipInput: '' });
       setIps([]);
     } catch (err) {
       setError(err.response?.data?.message ?? 'Failed to create bundle.');
@@ -63,6 +65,19 @@ const CreateBundleModal = ({ open, onClose, userId, onCreated }) => {
         <div className="form-group">
           <label className="form-label">Description</label>
           <input className="input" placeholder="Optional description" value={form.bundleDescription} onChange={set('bundleDescription')} />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label"><User size={13} />SSH Username</label>
+          <input
+            required
+            className="input"
+            placeholder="e.g. ec2-user, ubuntu, root"
+            value={form.sshUsername}
+            onChange={set('sshUsername')}
+            style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}
+          />
+          <span className="form-hint">The Linux user used for SSH connections to all servers in this bundle.</span>
         </div>
 
         <div className="form-group">
@@ -178,6 +193,15 @@ const BundlePage = () => {
                   )}
                 </div>
               </div>
+
+              {b.username && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
+                  <User size={11} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ fontSize: '0.75rem', fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-secondary)' }}>
+                    {b.username}
+                  </span>
+                </div>
+              )}
 
               <div className="tags-list">
                 {(b.ipAddresses ?? []).map(ip => (

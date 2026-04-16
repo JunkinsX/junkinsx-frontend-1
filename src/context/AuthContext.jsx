@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { getAllUsers } from '../api/api';
 
 const AuthContext = createContext(null);
 
@@ -13,63 +14,47 @@ const loadFromStorage = () => {
   }
 };
 
-/**
- * Attempt every known field name the backend might use for the user id.
- * Falls back to 1 so the app never gets stuck on login.
- */
-const extractUserId = (data) => {
-  if (!data || typeof data !== 'object') return data || 1;
-  return (
-    data.userId     ??
-    data.user_id    ??
-    data.id         ??
-    data.ID         ??
-    data.user?.id   ??
-    data.user?.userId ??
-    data.data?.id   ??
-    1               // final fallback — at least we know login succeeded
-  );
-};
-
-const extractUsername = (data) => {
-  if (!data || typeof data !== 'object') return 'User';
-  return (
-    data.username   ??
-    data.userName   ??
-    data.name       ??
-    data.user?.username ??
-    data.user?.name ??
-    data.data?.username ??
-    data.email?.split('@')[0] ??
-    'User'
-  );
-};
-
-const extractEmail = (data) => {
-  if (!data || typeof data !== 'object') return '';
-  return (
-    data.email      ??
-    data.user?.email ??
-    data.data?.email ??
-    ''
-  );
-};
-
 export const AuthProvider = ({ children }) => {
   const [auth, setAuth] = useState(loadFromStorage);
 
-  const login = useCallback((data) => {
-    // Log the raw response so we can see what the backend actually returns
-    console.log('[AuthContext] login() raw data:', data);
+  /**
+   * Called after a successful login/register.
+   * The backend /api/user/login returns a plain string ("Login successful"),
+   * not a user object. We resolve the real userId by calling getAllUsers and
+   * matching on the email the user just typed in.
+   *
+   * @param {string|object} data  - raw response body from the login call
+   * @param {string} email        - email used during login (passed by AuthPage)
+   */
+  const login = useCallback(async (data, email) => {
+    console.log('[AuthContext] login() raw data:', data, 'email:', email);
 
-    const payload = {
-      userId:   extractUserId(data),
-      username: extractUsername(data),
-      email:    extractEmail(data),
-      // Store the raw response too, just in case
-      _raw: data,
-    };
+    let userId   = 1;
+    let username = email ? email.split('@')[0] : 'User';
+    let resolvedEmail = email ?? '';
 
+    // The backend returns a plain string \u2014 fetch real user info via getAllUsers
+    if (email) {
+      try {
+        const res   = await getAllUsers();
+        const users = Array.isArray(res.data) ? res.data : [];
+        const found = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        if (found) {
+          userId        = found.id ?? found.userId ?? 1;
+          username      = found.username ?? found.name ?? username;
+          resolvedEmail = found.email ?? email;
+        }
+      } catch (e) {
+        console.warn('[AuthContext] Could not resolve userId from getAllUsers:', e.message);
+      }
+    } else if (data && typeof data === 'object') {
+      // If the backend ever returns a proper user object, use it directly
+      userId        = data.userId ?? data.id ?? data.user?.id ?? 1;
+      username      = data.username ?? data.user?.username ?? username;
+      resolvedEmail = data.email ?? data.user?.email ?? resolvedEmail;
+    }
+
+    const payload = { userId, username, email: resolvedEmail, _raw: data };
     console.log('[AuthContext] storing payload:', payload);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     setAuth(payload);

@@ -10,16 +10,20 @@ const api = axios.create({
 // ─── USER ─────────────────────────────────────────────────────
 export const registerUser  = (data) => api.post('/api/user/register', data);
 export const loginUser     = (data) => api.post('/api/user/login', data);
+/**
+ * Returns the full list of users — used post-login to resolve userId
+ * (backend login returns a plain string, not a user object).
+ */
 export const getAllUsers    = ()     => api.get('/api/user');
 
 // ─── PIPELINE ──────────────────────────────────────────────────
-export const createPipeline        = (data) => api.post('/api/pipeline/create', data);
+export const createPipeline        = (data)   => api.post('/api/pipeline/create', data);
 export const getPipelinesByUser    = (userId) => api.get(`/api/pipeline?userId=${userId}`);
-export const addBundleToPipeline   = (data) => api.post('/api/pipeline/bundle', data);
-export const addTasksToPipeline    = (data) => api.post('/api/pipeline/tasks', data);
-export const addSecretsToPipeline  = (data) => api.post('/api/pipeline/secrets', data);
-export const setSSHKeys            = (data) => api.post('/api/pipeline/keys', data);
-export const executePipeline       = (id)   => api.post(`/api/pipeline/execute/${id}`);
+export const addBundleToPipeline   = (data)   => api.post('/api/pipeline/bundle', data);
+export const addTasksToPipeline    = (data)   => api.post('/api/pipeline/tasks', data);
+export const addSecretsToPipeline  = (data)   => api.post('/api/pipeline/secrets', data);
+export const setSSHKeys            = (data)   => api.post('/api/pipeline/keys', data);
+export const executePipeline       = (id)     => api.post(`/api/pipeline/execute/${id}`);
 
 // ─── BUNDLE ────────────────────────────────────────────────────
 export const createBundle    = (data)   => api.post('/api/bundle/create', data);
@@ -27,8 +31,12 @@ export const addBundleToUser = (data)   => api.post('/api/bundle/add-to-user', d
 export const getBundles      = (userId) => api.get(`/api/bundle?userId=${userId}`);
 
 // ─── TASK ──────────────────────────────────────────────────────
-export const createTask          = (data)       => api.post('/api/task/create', data);
-export const getTasksByPipeline  = (pipelineId) => api.get(`/api/task?pipelineId=${pipelineId}`);
+export const createTask         = (data)       => api.post('/api/task/create', data);
+/**
+ * Returns tasks already attached to a specific pipeline.
+ * Used in the pipeline detail Bundles/Tasks tab to display what's configured.
+ */
+export const getTasksByPipeline = (pipelineId) => api.get(`/api/task?pipelineId=${pipelineId}`);
 
 // ─── SECRET ────────────────────────────────────────────────────
 export const createSecret = (data) => api.post('/api/secret/create', data);

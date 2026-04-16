@@ -11,7 +11,7 @@ import {
   getPipelinesByUser,
   addBundleToPipeline, addTasksToPipeline, addSecretsToPipeline,
   setSSHKeys, executePipeline,
-  getBundles, getTasksByPipeline,
+  getBundles, createTask,
 } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
@@ -121,86 +121,89 @@ const AddBundleModal = ({ open, onClose, userId, pipelineId, onAdded }) => {
 };
 
 /* ── Add Task Modal ──────────────────────────────────── */
+/**
+ * Create a brand-new task and immediately attach it to this pipeline.
+ * There's no global "list all tasks" API endpoint, so this modal combines
+ * task creation + pipeline attachment into one step.
+ */
 const AddTaskModal = ({ open, onClose, pipelineId, onAdded }) => {
-  const [tasks, setTasks]     = useState([]);
-  const [selected, setSelected] = useState([]);
+  const [form, setForm]       = useState({ taskName: '', taskDescription: '' });
+  const [cmds, setCmds]       = useState(['']);
   const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(false);
+  const [error, setError]     = useState('');
 
-  useEffect(() => {
-    if (!open) return;
-    setFetching(true);
-    getTasksByPipeline(pipelineId)
-      .then(r => setTasks(Array.isArray(r.data) ? r.data : []))
-      .catch(() => {})
-      .finally(() => setFetching(false));
-  }, [open, pipelineId]);
+  const set    = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const setCmd = (i, v) => setCmds(prev => { const n = [...prev]; n[i] = v; return n; });
+  const addCmd    = () => setCmds(prev => [...prev, '']);
+  const removeCmd = (i) => setCmds(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
 
-  const toggle = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-
-  const handleAdd = async () => {
-    if (!selected.length) return;
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    setError('');
+    const clean = cmds.filter(c => c.trim());
+    if (!clean.length) { setError('Add at least one command.'); return; }
     setLoading(true);
     try {
-      const taskList = tasks.filter(t => selected.includes(t.id));
-      await addTasksToPipeline({ pipelineId, taskList });
+      // 1. Create the task
+      const res = await createTask({
+        taskName:        form.taskName,
+        taskDescription: form.taskDescription,
+        commandsList:    [{ commandList: clean }],
+      });
+      const newTask = res.data;
+      // 2. Attach it to this pipeline
+      await addTasksToPipeline({ pipelineId, taskList: [newTask] });
       onAdded();
       onClose();
-      setSelected([]);
-    } catch (e) {
-      console.error(e);
+      setForm({ taskName: '', taskDescription: '' });
+      setCmds(['']);
+    } catch (err) {
+      setError(err.response?.data?.message ?? 'Failed to create task.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Add Tasks to Pipeline">
-      {fetching ? (
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <Loader2 size={20} className="spin" style={{ margin: '0 auto', color: 'var(--text-muted)' }} />
+    <Modal open={open} onClose={onClose} title="Create & Attach Task">
+      <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="form-group">
+          <label className="form-label">Task Name</label>
+          <input required className="input" placeholder="e.g. Deploy Backend" value={form.taskName} onChange={set('taskName')} />
         </div>
-      ) : tasks.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-          No tasks found. <a href="/tasks" style={{ color: 'var(--text-secondary)' }}>Create one first.</a>
-        </p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
-          {tasks.map(t => (
-            <label
-              key={t.id}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                padding: '0.75rem', borderRadius: 10,
-                border: `1px solid ${selected.includes(t.id) ? 'var(--border-strong)' : 'var(--border)'}`,
-                background: selected.includes(t.id) ? 'var(--bg-muted)' : 'var(--bg-subtle)',
-                cursor: 'pointer', transition: 'all 0.15s ease',
-              }}
-            >
+        <div className="form-group">
+          <label className="form-label">Description</label>
+          <input className="input" placeholder="Optional" value={form.taskDescription} onChange={set('taskDescription')} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Commands</label>
+          {cmds.map((cmd, i) => (
+            <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem', alignItems: 'center' }}>
+              <span style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: '0.75rem', minWidth: 16 }}>{i + 1}</span>
               <input
-                type="checkbox"
-                checked={selected.includes(t.id)}
-                onChange={() => toggle(t.id)}
-                style={{ accentColor: 'var(--accent)' }}
+                className="input"
+                style={{ flex: 1, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8125rem' }}
+                placeholder={`$ command ${i + 1}`}
+                value={cmd}
+                onChange={e => setCmd(i, e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCmd(); } }}
               />
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{t.taskName}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
-                  {t.commandsList?.length ?? 0} command group(s)
-                </div>
-              </div>
-            </label>
+              {cmds.length > 1 && (
+                <button type="button" className="btn btn-icon btn-ghost" onClick={() => removeCmd(i)}>
+                  <X size={13} />
+                </button>
+              )}
+            </div>
           ))}
+          <button type="button" className="btn btn-ghost" style={{ fontSize: '0.8rem', marginTop: '0.25rem' }} onClick={addCmd}>
+            <Plus size={13} /> Add Command
+          </button>
         </div>
-      )}
-      <button
-        className="btn btn-primary"
-        style={{ width: '100%' }}
-        disabled={loading || !selected.length}
-        onClick={handleAdd}
-      >
-        {loading ? <Loader2 size={15} className="spin" /> : `Add ${selected.length || ''} Task${selected.length !== 1 ? 's' : ''}`}
-      </button>
+        {error && <div className="error-banner"><AlertCircle size={14} />{error}</div>}
+        <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+          {loading ? <Loader2 size={15} className="spin" /> : 'Create & Attach Task'}
+        </button>
+      </form>
     </Modal>
   );
 };
@@ -354,9 +357,20 @@ const PipelineDetails = () => {
   const [taskModal,   setTaskModal]   = useState(false);
   const [secretModal, setSecretModal] = useState(false);
 
+  // Refresh pipeline data from server
+  const refreshPipeline = useCallback(() => {
+    getPipelinesByUser(auth.userId)
+      .then(r => {
+        const found = (Array.isArray(r.data) ? r.data : []).find(p => String(p.id) === String(id));
+        if (found) setPipeline(found);
+      })
+      .catch(console.error);
+  }, [auth.userId, id]);
+
   // Refresh counter for tabs that list data
   const [refreshKey, setRefreshKey] = useState(0);
-  const refresh = () => setRefreshKey(k => k + 1);
+  const refresh = () => { setRefreshKey(k => k + 1); refreshPipeline(); };
+
 
   // If no router state, fetch from user pipelines list
   useEffect(() => {
@@ -493,7 +507,7 @@ const PipelineDetails = () => {
               </button>
             }
           >
-            <BundleList key={refreshKey} pipelineId={id} userId={auth.userId} />
+            <BundleList key={refreshKey} pipeline={pipeline} />
           </Section>
         )}
 
@@ -507,7 +521,7 @@ const PipelineDetails = () => {
               </button>
             }
           >
-            <TaskList key={refreshKey} pipelineId={id} />
+            <TaskList key={refreshKey} pipeline={pipeline} />
           </Section>
         )}
 
@@ -521,7 +535,7 @@ const PipelineDetails = () => {
               </button>
             }
           >
-            <SecretPlaceholder key={refreshKey} />
+            <SecretList key={refreshKey} pipeline={pipeline} />
           </Section>
         )}
 
@@ -538,18 +552,9 @@ const PipelineDetails = () => {
 };
 
 /* ── Sub-components that fetch their own data ────────── */
-const BundleList = ({ pipelineId, userId }) => {
-  const [items, setItems]   = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getBundles(userId)
-      .then(r => setItems(Array.isArray(r.data) ? r.data : []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [userId]);
-
-  if (loading) return <EmptyRow message="Loading bundles…" />;
+const BundleList = ({ pipeline }) => {
+  // Use the pipeline's already-attached bundles
+  const items = pipeline?.ipAddressBundle ?? [];
   if (!items.length) return <EmptyRow message="No bundles attached. Click 'Add Bundle' to get started." />;
 
   return items.map((b) => (
@@ -565,18 +570,8 @@ const BundleList = ({ pipelineId, userId }) => {
   ));
 };
 
-const TaskList = ({ pipelineId }) => {
-  const [items, setItems]   = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getTasksByPipeline(pipelineId)
-      .then(r => setItems(Array.isArray(r.data) ? r.data : []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [pipelineId]);
-
-  if (loading) return <EmptyRow message="Loading tasks…" />;
+const TaskList = ({ pipeline }) => {
+  const items = pipeline?.tasksList ?? [];
   if (!items.length) return <EmptyRow message="No tasks attached. Click 'Add Task' to get started." />;
 
   return items.map((t) => (
@@ -596,12 +591,26 @@ const TaskList = ({ pipelineId }) => {
   ));
 };
 
-const SecretPlaceholder = () => (
-  <div style={{ padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-    <Shield size={14} />
-    Secret names are shown here. Values are masked for security.
-  </div>
-);
+const SecretList = ({ pipeline }) => {
+  const secrets = pipeline?.secretList ?? [];
+  if (!secrets.length) {
+    return (
+      <div style={{ padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Shield size={14} />
+        No secrets attached. Click 'Add Secret' to configure environment variables.
+      </div>
+    );
+  }
+  return secrets.map((s) => (
+    <div key={s.id} style={{ padding: '0.875rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <Shield size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+      <div>
+        <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>{s.secretName}</div>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>•••••••• (masked)</div>
+      </div>
+    </div>
+  ));
+};
 
 const EmptyRowComp = ({ message }) => (
   <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
