@@ -113,6 +113,21 @@ const LogsPage = () => {
     };
   }, [hasValidPipelineId, pipelineIdNum]);
 
+  // Fallback polling if websocket cannot stay connected.
+  useEffect(() => {
+    if (!hasValidPipelineId) return;
+    if (wsLive) return;
+    if (TERMINAL_DONE.includes(status)) return;
+
+    const interval = window.setInterval(() => {
+      fetchLogs();
+    }, 3000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [fetchLogs, hasValidPipelineId, status, wsLive]);
+
   if (!hasValidPipelineId) {
     return (
       <div className="page-container">

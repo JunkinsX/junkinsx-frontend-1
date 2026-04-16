@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Terminal as TerminalIcon, Copy, Check, Circle } from 'lucide-react';
-import Ansi from 'ansi-to-react';
+import AnsiModule from 'ansi-to-react';
+
+const AnsiComponent =
+  AnsiModule?.default ||
+  (({ children }) => <>{children}</>);
 
 const Terminal = ({ logs = [], title = 'Build Output', status, isStarting }) => {
   const scrollRef = useRef(null);
@@ -71,15 +75,13 @@ const Terminal = ({ logs = [], title = 'Build Output', status, isStarting }) => 
           logs.map((entry, i) => {
             const task = entry?.taskName ? `[${entry.taskName}] ` : '';
             const text = entry?.output ?? String(entry);
-            const isError = /error|fail|fatal/i.test(text);
-            const isWarn  = /warn|warning/i.test(text);
             return (
               <span
                 key={i}
                 className="log-output-line"
               >
                 {task}
-                <Ansi useClasses={false}>{text}</Ansi>
+                <AnsiComponent useClasses={false}>{String(text ?? '')}</AnsiComponent>
                 {'\n'}
               </span>
             );
