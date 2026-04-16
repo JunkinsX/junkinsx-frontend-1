@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { getAllUsers } from '../api/api';
 
 const AuthContext = createContext(null);
 
@@ -36,9 +35,7 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Called after a successful login/register.
-   * The backend /api/user/login returns a plain string ("Login successful"),
-   * not a user object. We resolve the real userId by calling getAllUsers and
-   * matching on the email the user just typed in.
+  * The backend returns a User object from /api/user/login.
    *
    * @param {string|object} data  - raw response body from the login call
    * @param {string} email        - email used during login (passed by AuthPage)

@@ -1,9 +1,10 @@
 import axios from 'axios';
 
-const BASE = 'http://18.117.224.52:8080';
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL?.trim() || 'http://18.117.224.52:8080';
 
 const api = axios.create({
-  baseURL: BASE,
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -11,7 +12,7 @@ const api = axios.create({
 // ─── USER ─────────────────────────────────────────────────────
 export const registerUser  = (data) => api.post('/api/user/register', data);
 export const loginUser     = (data) => api.post('/api/user/login', data);
-export const getAllUsers    = ()     => api.get('/api/user');
+export const getAllUsers = () => api.get('/api/user');
 
 // ─── PIPELINE ──────────────────────────────────────────────────
 export const createPipeline        = (data)   => api.post('/api/pipeline/add', data);
@@ -26,7 +27,7 @@ export const getPipelinePublicKey  = (id)     => api.get(`/api/pipeline/public-k
 export const createBundle        = (data)   => api.post('/api/bundle/create', data);
 export const addBundleToUser     = (data)   => api.post('/api/bundle/add-to-user', data);
 export const getBundles          = (userId) => api.get(`/api/bundle?userId=${userId}`);
-export const getBundlesByUserId = (userId) => api.get(`/api/bundle/${userId}`);
+export const getBundlesByUserId  = (userId) => api.get(`/api/bundle/${userId}`);
 
 // ─── TASK ──────────────────────────────────────────────────────
 export const createTask         = (data)       => api.post('/api/task/create', data);

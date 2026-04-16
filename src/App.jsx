@@ -39,6 +39,8 @@ function App() {
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/create" element={<ProtectedRoute><CreatePipeline /></ProtectedRoute>} />
             <Route path="/pipeline/:id" element={<ProtectedRoute><PipelineDetails /></ProtectedRoute>} />
+            <Route path="/log" element={<ProtectedRoute><Navigate to="/" replace /></ProtectedRoute>} />
+            <Route path="/log/:pipelineId" element={<ProtectedRoute><LogsPage /></ProtectedRoute>} />
             <Route path="/logs/:pipelineId" element={<ProtectedRoute><LogsPage /></ProtectedRoute>} />
             <Route path="/bundles" element={<ProtectedRoute><BundlePage /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><TaskBuilderPage /></ProtectedRoute>} />

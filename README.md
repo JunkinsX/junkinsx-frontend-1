@@ -1,16 +1,46 @@
-# React + Vite
+# JunkinsX Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite frontend for the JunkinsX CI/CD backend.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- User authentication (register/login)
+- Pipeline dashboard and details
+- Bundle, task, and secret management
+- Pipeline execution and live logs via STOMP/SockJS
 
-## React Compiler
+## Prerequisites
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js 20+
+- npm 10+
+- JunkinsX backend running (Spring Boot)
 
-## Expanding the ESLint configuration
+## Setup
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. Install dependencies:
+
+	npm install
+
+2. Configure environment variables:
+
+	cp .env.example .env
+
+3. Start development server:
+
+	npm run dev
+
+## Environment Variables
+
+- `VITE_API_BASE_URL`: backend base URL, for example `http://localhost:8080`
+
+This value is used for both REST API calls and logs WebSocket/SockJS connection.
+
+## Build
+
+- Production build:
+
+  npm run build
+
+- Preview production build:
+
+  npm run preview
