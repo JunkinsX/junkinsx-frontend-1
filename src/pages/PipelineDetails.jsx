@@ -596,20 +596,24 @@ const PipelineDetails = () => {
                   <Copy size={12} /> Copy URL
                 </button>
               </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-                Paste this into your GitHub Repo <b>Settings &gt; Webhooks</b> to trigger this pipeline on every <code>push</code>.
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                Configure your GitHub Repo under <b>Settings &gt; Webhooks</b> with these exact details to trigger pipeline execution on every <code>push</code>.
               </p>
               <div style={{
-                fontFamily: 'JetBrains Mono, monospace',
+                margin: '0.75rem 0',
                 fontSize: '0.75rem',
-                padding: '0.625rem',
+                padding: '0.75rem 1rem',
                 background: 'var(--bg-elevated)',
                 border: '1px solid var(--border)',
                 borderRadius: '8px',
                 color: 'var(--text-primary)',
-                wordBreak: 'break-all'
               }}>
-                http://18.117.224.52:8080/api/webhook/github
+                <ul style={{ margin: 0, paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                  <li><b>Payload URL:</b> <code style={{wordBreak: 'break-all', color: 'var(--accent)'}}>http://18.117.224.52:8080/api/webhook/github</code></li>
+                  <li><b>Content type:</b> <code style={{color: 'var(--accent)', fontWeight: 600}}>application/json</code> <span style={{color: 'var(--warning)', fontSize: '0.7rem'}}>(Required for parsing payload)</span></li>
+                  <li><b>Secret:</b> (Leave blank)</li>
+                  <li><b>Events:</b> Just the push event.</li>
+                </ul>
               </div>
             </div>
           </div>
