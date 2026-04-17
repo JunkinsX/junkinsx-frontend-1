@@ -589,7 +589,7 @@ const PipelineDetails = () => {
                   className="btn btn-ghost btn-icon"
                   style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', height: 'auto' }}
                   onClick={() => {
-                    navigator.clipboard.writeText('http://18.117.224.52:8080/api/webhook/github');
+                    navigator.clipboard.writeText('https://junkins.utej.me/api/webhook/github');
                     // Simple feedback could be added here
                   }}
                 >
@@ -609,7 +609,7 @@ const PipelineDetails = () => {
                 color: 'var(--text-primary)',
               }}>
                 <ul style={{ margin: 0, paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                  <li><b>Payload URL:</b> <code style={{wordBreak: 'break-all', color: 'var(--accent)'}}>http://18.117.224.52:8080/api/webhook/github</code></li>
+                  <li><b>Payload URL:</b> <code style={{wordBreak: 'break-all', color: 'var(--accent)'}}>https://junkins.utej.me/api/webhook/github</code></li>
                   <li><b>Content type:</b> <code style={{color: 'var(--accent)', fontWeight: 600}}>application/json</code> <span style={{color: 'var(--warning)', fontSize: '0.7rem'}}>(Required for parsing payload)</span></li>
                   <li><b>Secret:</b> (Leave blank)</li>
                   <li><b>Events:</b> Just the push event.</li>

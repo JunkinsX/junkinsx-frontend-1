@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.trim() || 'http://18.117.224.52:8080';
+  import.meta.env.VITE_API_BASE_URL?.trim() || 'https://junkins.utej.me';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
