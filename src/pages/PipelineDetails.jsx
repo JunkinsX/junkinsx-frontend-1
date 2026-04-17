@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ChevronLeft, Play, Package, ListTodo, KeyRound, Shield,
   Plus, AlertCircle, Loader2, GitBranch, Link2, Server, Eye, EyeOff,
-  Check, Copy, Rocket, X, Trash2, History
+  Check, Copy, Rocket, X, Trash2, History, AlignLeft
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -268,6 +268,32 @@ const AddSecretModal = ({ open, onClose, pipelineId, onAdded }) => {
   );
 };
 
+const LogsModal = ({ open, onClose, logText }) => {
+  return (
+    <Modal open={open} onClose={onClose} title="Execution Final Logs">
+      <div style={{
+        background: '#0d0d0d', // dark terminal look
+        color: '#f0f0f0',
+        padding: '1.25rem',
+        borderRadius: '8px',
+        border: '1px solid var(--border)',
+        fontFamily: 'JetBrains Mono, monospace',
+        fontSize: '0.8rem',
+        height: '400px',
+        overflowY: 'auto',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-all',
+        boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.5)'
+      }}>
+        {logText || 'No logs generated.'}
+      </div>
+      <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={onClose}>
+        Close
+      </button>
+    </Modal>
+  );
+};
+
 /* ── SSH Keys Tab ────────────────────────────────────── */
 const SSHKeysTab = ({ pipelineId }) => {
   const [publicKey, setPublicKey] = useState('');
@@ -405,6 +431,7 @@ const PipelineDetails = () => {
   const [bundleModal, setBundleModal] = useState(false);
   const [taskModal,   setTaskModal]   = useState(false);
   const [secretModal, setSecretModal] = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
 
   // Refresh pipeline data from server
   const refreshPipeline = useCallback(() => {
@@ -598,7 +625,7 @@ const PipelineDetails = () => {
               </button>
             }
           >
-            <HistoryList key={refreshKey} pipeline={pipeline} />
+            <HistoryList key={refreshKey} pipeline={pipeline} onViewLogs={setSelectedLog} />
           </Section>
         )}
 
@@ -652,6 +679,7 @@ const PipelineDetails = () => {
       <AddBundleModal open={bundleModal} onClose={() => setBundleModal(false)} userId={auth.userId} pipelineId={Number(id)} onAdded={refresh} />
       <AddTaskModal   open={taskModal}   onClose={() => setTaskModal(false)}   pipelineId={Number(id)} onAdded={refresh} />
       <AddSecretModal open={secretModal} onClose={() => setSecretModal(false)} pipelineId={Number(id)} onAdded={refresh} />
+      <LogsModal      open={selectedLog !== null} onClose={() => setSelectedLog(null)} logText={selectedLog} />
     </div>
   );
 };
@@ -723,7 +751,7 @@ const EmptyRowComp = ({ message }) => (
   </div>
 );
 
-const HistoryList = ({ pipeline }) => {
+const HistoryList = ({ pipeline, onViewLogs }) => {
   const history = pipeline?.historyList ?? [];
   if (!history.length) return <EmptyRow message="No runs yet. Click 'Run Pipeline' to execute." />;
 
@@ -733,8 +761,13 @@ const HistoryList = ({ pipeline }) => {
   return sorted.map((h) => (
     <div key={h.id} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           Run #{h.runNumber} - <span style={{color: 'var(--text-secondary)'}}>{h.triggeredBy || "Manual"}</span>
+          {h.finalLogs && (
+            <button className="btn btn-ghost" style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem', height: 'auto', border: '1px solid var(--border)' }} onClick={() => onViewLogs(h.finalLogs)}>
+               <AlignLeft size={13} style={{marginRight: '0.25rem'}}/> View Logs
+            </button>
+          )}
         </div>
         <StatusBadge status={h.status} />
       </div>
