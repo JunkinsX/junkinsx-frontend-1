@@ -30,7 +30,7 @@ const PipelineCard = ({ pipeline }) => {
             )}
           </div>
         </div>
-        <StatusBadge status={pipeline.status || 'QUEUED'} />
+        <StatusBadge status={pipeline.historyList && pipeline.historyList.length > 0 ? pipeline.historyList[pipeline.historyList.length - 1].status : 'QUEUED'} />
       </div>
 
       {/* Repo URL */}

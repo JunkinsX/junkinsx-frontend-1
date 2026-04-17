@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ChevronLeft, Play, Package, ListTodo, KeyRound, Shield,
   Plus, AlertCircle, Loader2, GitBranch, Link2, Server, Eye, EyeOff,
-  Check, Copy, Rocket, X, Trash2
+  Check, Copy, Rocket, X, Trash2, History
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -382,6 +382,7 @@ const SSHKeysTab = ({ pipelineId }) => {
 /* ── Main page ───────────────────────────────────────── */
 const TABS = [
   { id: 'overview', label: 'Overview',  icon: GitBranch },
+  { id: 'history',  label: 'History',   icon: History },
   { id: 'bundles',  label: 'Bundles',   icon: Package },
   { id: 'tasks',    label: 'Tasks',     icon: ListTodo },
   { id: 'secrets',  label: 'Secrets',   icon: Shield },
@@ -436,18 +437,19 @@ const PipelineDetails = () => {
     setExecResult(null);
     try {
       await executePipeline(id);
-      // Immediately navigate to logs since it's now async
-      navigate(`/logs/${id}`);
+      setExecResult({ type: 'success', text: 'Pipeline execution requested successfully.' });
+      refresh();
     } catch (err) {
       const msg = err.response?.data?.message ?? err.response?.data ?? 'Execution failed.';
       setExecResult({ type: 'error', text: msg });
-      setExecuting(false);
     }
+    setExecuting(false);
   };
 
   if (!pipeline) return <LoadingSpinner message="Loading pipeline…" />;
 
   const name = pipeline.pipelineName ?? pipeline.name ?? `Pipeline #${id}`;
+  const latestStatus = pipeline.historyList && pipeline.historyList.length > 0 ? pipeline.historyList[pipeline.historyList.length - 1].status : 'QUEUED';
 
   return (
     <div className="page-container">
@@ -462,7 +464,7 @@ const PipelineDetails = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.375rem' }}>
             <h1 style={{ fontSize: '1.5rem', margin: 0 }}>{name}</h1>
-            <StatusBadge status={pipeline.status ?? 'QUEUED'} />
+            <StatusBadge status={latestStatus} />
           </div>
           {pipeline.pipelineDescription && (
             <p style={{ margin: 0, fontSize: '0.875rem' }}>{pipeline.pipelineDescription}</p>
@@ -489,11 +491,6 @@ const PipelineDetails = () => {
         >
           {execResult.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
           <div style={{ flex: 1 }}>{execResult.text}</div>
-          {execResult.type === 'success' && (
-            <button className="btn btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => navigate(`/logs/${id}`)}>
-              View Logs
-            </button>
-          )}
         </motion.div>
       )}
 
@@ -589,6 +586,20 @@ const PipelineDetails = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── HISTORY ── */}
+        {activeTab === 'history' && (
+          <Section
+            title="Execution History"
+            action={
+              <button className="btn btn-ghost" style={{ fontSize: '0.8125rem' }} onClick={refresh}>
+                <History size={14} /> Refresh
+              </button>
+            }
+          >
+            <HistoryList key={refreshKey} pipeline={pipeline} />
+          </Section>
         )}
 
         {/* ── BUNDLES ── */}
@@ -711,5 +722,32 @@ const EmptyRowComp = ({ message }) => (
     {message}
   </div>
 );
+
+const HistoryList = ({ pipeline }) => {
+  const history = pipeline?.historyList ?? [];
+  if (!history.length) return <EmptyRow message="No runs yet. Click 'Run Pipeline' to execute." />;
+
+  // Sort history newest first
+  const sorted = [...history].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  return sorted.map((h) => (
+    <div key={h.id} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+          Run #{h.runNumber} - <span style={{color: 'var(--text-secondary)'}}>{h.triggeredBy || "Manual"}</span>
+        </div>
+        <StatusBadge status={h.status} />
+      </div>
+      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+        Executed At: {new Date(h.timestamp).toLocaleString()}
+      </div>
+      {h.status === 'FAILED' && h.failedAtTask && (
+        <div style={{ fontSize: '0.8125rem', color: 'var(--error)', marginTop: '0.25rem', background: 'var(--error-muted)', padding: '0.5rem', borderRadius: '4px' }}>
+          <strong>Failed at Task:</strong> {h.failedAtTask}
+        </div>
+      )}
+    </div>
+  ));
+};
 
 export default PipelineDetails;
